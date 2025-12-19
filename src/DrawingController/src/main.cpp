@@ -23,10 +23,10 @@ void setup() {
 unsigned long timerAccel = 0;
 unsigned long timerDisplay = 0;
 unsigned long timerBlink = 0;
+float x = 0.0, y = 0.0, z = 0.0;
 
 void loop() {
   //odczyt akcelerometru co 20ms
-  float x, y, z;
   if (shouldExecute(timerAccel, 20)) {
     if (LIS.available()) {
       LIS.getAcceleration(&x, &y, &z);
