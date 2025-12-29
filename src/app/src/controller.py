@@ -3,15 +3,19 @@ import sys
 import threading
 import time
 
-TEST_MODE = True  # Przy teście rzeczywistym, zmienić na False
-SERIAL_PORT = "COM3"  # Zmienić na nazwę wykorzystywanego portu
-#SERIAL_PORT = "/dev/ttyUSB0"  # Zmienić na nazwę wykorzystywanego portu
+TEST_MODE = False # Przy teście rzeczywistym, zmienić na False
 BAUD_RATE = 9600
+
+current_port = None
+thread_started = False
 
 if TEST_MODE:
     from arduino_mock import MockSerial as SerialConnection, MOCK_CONTROLS
+
+    current_port = "MOCK_PORT"
 else:
     import serial
+    import serial.tools.list_ports
 
     SerialConnection = serial.Serial
 
@@ -38,10 +42,10 @@ def get_mode_name(id):
     return "UNKNOWN"
 
 
-def serial_worker():
+def serial_worker(port_name):
     global app_state
     try:
-        ser = SerialConnection(SERIAL_PORT, BAUD_RATE, timeout=1)
+        ser = SerialConnection(port_name, BAUD_RATE, timeout=1)
         time.sleep(2)
         last_sent = 0
 
@@ -81,6 +85,7 @@ def serial_worker():
 
     except Exception as e:
         print(f"Serial Error: {e}")
+        app_state["mode_str"] = f"ERROR: {e}"
 
 
 def update_cursor_logic(screen_w, screen_h):
@@ -105,6 +110,47 @@ def update_cursor_logic(screen_w, screen_h):
         cursor["y"] = 0
     if cursor["y"] > screen_h:
         cursor["y"] = screen_h
+
+
+# Wybór portu
+def draw_port_selection(screen, font, ports):
+    """Draws the list of available ports to click"""
+    screen.fill((255, 255, 255))
+
+    title = font.render("SELECT CONNECTION PORT:", True, (0, 0, 0))
+    screen.blit(title, (20, 20))
+
+    y_pos = 60
+    mouse_pos = pygame.mouse.get_pos()
+    click = pygame.mouse.get_pressed()[0]
+
+    selected = None
+
+    if not ports:
+        screen.blit(
+            font.render("No ports found! Check USB cable.", True, (255, 0, 0)), (20, 60)
+        )
+        return None
+
+    for port in ports:
+        rect = pygame.Rect(20, y_pos, 550, 40)
+
+        color = (240, 240, 240)
+        if rect.collidepoint(mouse_pos):
+            color = (200, 230, 255)
+            if click:
+                selected = port
+
+        pygame.draw.rect(screen, color, rect)
+        pygame.draw.rect(screen, (0, 0, 0), rect, 1)
+
+        # Text
+        text_surf = font.render(f"{port}", True, (0, 0, 0))
+        screen.blit(text_surf, (30, y_pos + 10))
+
+        y_pos += 50
+
+    return selected
 
 
 # Rysowanie interfejsu
@@ -168,14 +214,18 @@ def draw_interface(screen, font):
 
 
 def main():
+    global current_port, thread_started
     pygame.init()
     screen = pygame.display.set_mode((600, 400), pygame.RESIZABLE)
     pygame.display.set_caption("Grove Cursor Controller")
     font = pygame.font.SysFont("Consolas", 16, bold=True)
     clock = pygame.time.Clock()
 
-    t = threading.Thread(target=serial_worker, daemon=True)
-    t.start()
+    # Pre-fetch ports if we are in Real Mode
+    available_ports = []
+    if not TEST_MODE:
+        # Get list of ports (Port Name, Description, Hardware ID)
+        available_ports = sorted(serial.tools.list_ports.comports())
 
     running = True
     while running:
@@ -189,26 +239,45 @@ def main():
                 if TEST_MODE and event.key == pygame.K_SPACE:
                     MOCK_CONTROLS["button_pressed"] = True
 
-        # Symulacja kontrolek
-        if TEST_MODE:
-            keys = pygame.key.get_pressed()
-            # Akcelerometr (WASD)
-            if keys[pygame.K_w]:
-                MOCK_CONTROLS["acc_y"] -= 0.1
-            if keys[pygame.K_s]:
-                MOCK_CONTROLS["acc_y"] += 0.1
-            if keys[pygame.K_a]:
-                MOCK_CONTROLS["acc_x"] -= 0.1
-            if keys[pygame.K_d]:
-                MOCK_CONTROLS["acc_x"] += 0.1
+                # Odświeżanie na R
+                if not TEST_MODE and current_port is None and event.key == pygame.K_r:
+                    available_ports = sorted(serial.tools.list_ports.comports())
 
-            # Potencjometr (lewa i prawa strzałka)
-            if keys[pygame.K_LEFT]:
-                MOCK_CONTROLS["pot_val"] = max(0, MOCK_CONTROLS["pot_val"] - 10)
-            if keys[pygame.K_RIGHT]:
-                MOCK_CONTROLS["pot_val"] = min(1023, MOCK_CONTROLS["pot_val"] + 10)
+        # Kontroller logiczny
+        if current_port is None:
+            selection = draw_port_selection(screen, font, available_ports)
+            if selection:
+                #current port jako string nazwy portu
+                current_port = str(selection.device) if not TEST_MODE else selection
+        else:
+            if not thread_started:
+                t = threading.Thread(
+                    target=serial_worker, args=(current_port,), daemon=True
+                )
+                t.start()
+                thread_started = True
 
-        draw_interface(screen, font)
+            # Symulacja kontrolek
+            if TEST_MODE:
+                keys = pygame.key.get_pressed()
+                # Akcelerometr (WASD)
+                if keys[pygame.K_w]:
+                    MOCK_CONTROLS["acc_y"] -= 0.1
+                if keys[pygame.K_s]:
+                    MOCK_CONTROLS["acc_y"] += 0.1
+                if keys[pygame.K_a]:
+                    MOCK_CONTROLS["acc_x"] -= 0.1
+                if keys[pygame.K_d]:
+                    MOCK_CONTROLS["acc_x"] += 0.1
+
+                # Potencjometr (lewa i prawa strzałka)
+                if keys[pygame.K_LEFT]:
+                    MOCK_CONTROLS["pot_val"] = max(0, MOCK_CONTROLS["pot_val"] - 10)
+                if keys[pygame.K_RIGHT]:
+                    MOCK_CONTROLS["pot_val"] = min(1023, MOCK_CONTROLS["pot_val"] + 10)
+
+            draw_interface(screen, font)
+
         pygame.display.flip()
         clock.tick(60)
 
