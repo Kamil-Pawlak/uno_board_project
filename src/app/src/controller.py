@@ -92,8 +92,8 @@ def update_cursor_logic(screen_w, screen_h):
     ax = app_state["acc"][0]
     ay = app_state["acc"][1]
 
-    cursor["x"] += ax * speed
-    cursor["y"] += ay * speed
+    cursor["x"] -= ay * speed
+    cursor["y"] -= ax * speed
 
     # Sprawdzanie krawędzi
     if cursor["x"] < 0:
