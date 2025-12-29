@@ -5,6 +5,7 @@ import time
 
 TEST_MODE = True  # Przy teście rzeczywistym, zmienić na False
 SERIAL_PORT = "COM3"  # Zmienić na nazwę wykorzystywanego portu
+#SERIAL_PORT = "/dev/ttyUSB0"  # Zmienić na nazwę wykorzystywanego portu
 BAUD_RATE = 9600
 
 if TEST_MODE:
@@ -92,8 +93,8 @@ def update_cursor_logic(screen_w, screen_h):
     ax = app_state["acc"][0]
     ay = app_state["acc"][1]
 
-    cursor["x"] += ax * speed
-    cursor["y"] += ay * speed
+    cursor["x"] -= ay * speed
+    cursor["y"] -= ax * speed
 
     # Sprawdzanie krawędzi
     if cursor["x"] < 0:
