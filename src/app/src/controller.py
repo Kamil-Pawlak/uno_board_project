@@ -3,7 +3,7 @@ import sys
 import threading
 import time
 
-TEST_MODE = True  # Przy teście rzeczywistym, zmienić na False
+TEST_MODE = False # Przy teście rzeczywistym, zmienić na False
 BAUD_RATE = 9600
 
 current_port = None
@@ -132,7 +132,7 @@ def draw_port_selection(screen, font, ports):
         )
         return None
 
-    for port, desc in ports:
+    for port in ports:
         rect = pygame.Rect(20, y_pos, 550, 40)
 
         color = (240, 240, 240)
@@ -145,7 +145,7 @@ def draw_port_selection(screen, font, ports):
         pygame.draw.rect(screen, (0, 0, 0), rect, 1)
 
         # Text
-        text_surf = font.render(f"{port} - {desc}", True, (0, 0, 0))
+        text_surf = font.render(f"{port}", True, (0, 0, 0))
         screen.blit(text_surf, (30, y_pos + 10))
 
         y_pos += 50
@@ -247,7 +247,8 @@ def main():
         if current_port is None:
             selection = draw_port_selection(screen, font, available_ports)
             if selection:
-                current_port = selection
+                #current port jako string nazwy portu
+                current_port = str(selection.device) if not TEST_MODE else selection
         else:
             if not thread_started:
                 t = threading.Thread(
