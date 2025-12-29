@@ -6,7 +6,7 @@ const int BUTTON_PIN = 6;
 const int LED_PIN = 4;
 LIS3DHTR<TwoWire> LIS;
 
-enum State { STATE_CONNECTING, STATE_NEUTRAL, STATE_DRAWING, STATE_ERASING };
+enum State { STATE_CONNECTING, STATE_CONFIRM, STATE_NEUTRAL, STATE_DRAWING, STATE_ERASING };
 State currentState = STATE_CONNECTING;
 
 unsigned long tAccel = 0, tSerial = 0, tButton = 0, tHandshake = 0;
@@ -40,7 +40,7 @@ void handleCommunication() {
         if (cmd == '!') {
             lastHeartbeat = millis();
             if (currentState == STATE_CONNECTING) {
-                currentState = STATE_NEUTRAL;
+                currentState = STATE_CONFIRM;
             }
         }
     }
@@ -59,7 +59,7 @@ void handleCommunication() {
 }
 
 void updateHardware() {
-    if (currentState != STATE_CONNECTING) {
+    if (currentState != STATE_CONNECTING && currentState != STATE_CONFIRM) {
         if (shouldExecute(tAccel, 20)) {
             if (LIS.available()) LIS.getAcceleration(&lastX, &lastY, &lastZ);
         }
@@ -90,6 +90,14 @@ void updateHardware() {
         case STATE_CONNECTING:
             // Miganie diodą podczas łączenia
             digitalWrite(LED_PIN, (millis() / 500) % 2); 
+            break;
+        case STATE_CONFIRM:
+            // Stałe świecenie diody podczas potwierdzania
+            digitalWrite(LED_PIN, HIGH);
+            //potwierdzenie połączenia przyciskiem
+            if (digitalRead(BUTTON_PIN) == HIGH) {
+                currentState = STATE_NEUTRAL;
+            }
             break;
         case STATE_NEUTRAL:
         case STATE_DRAWING:
