@@ -1,4 +1,2 @@
 pygame
 pyserial
-threading
-time

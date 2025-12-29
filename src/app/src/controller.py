@@ -5,6 +5,7 @@ import time
 
 TEST_MODE = True  # Przy teście rzeczywistym, zmienić na False
 SERIAL_PORT = "COM3"  # Zmienić na nazwę wykorzystywanego portu
+#SERIAL_PORT = "/dev/ttyUSB0"  # Zmienić na nazwę wykorzystywanego portu
 BAUD_RATE = 9600
 
 if TEST_MODE:
