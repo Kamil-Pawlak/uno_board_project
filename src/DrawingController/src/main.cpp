@@ -6,7 +6,7 @@ const int BUTTON_PIN = 6;
 const int LED_PIN = 4;
 LIS3DHTR<TwoWire> LIS;
 
-enum State { STATE_CONNECTING, STATE_CONFIRM, STATE_NEUTRAL, STATE_DRAWING, STATE_ERASING };
+enum State { STATE_CONNECTING,  STATE_NEUTRAL, STATE_DRAWING, STATE_ERASING, STATE_CONFIRM };
 State currentState = STATE_CONNECTING;
 
 unsigned long tAccel = 0, tSerial = 0, tButton = 0, tHandshake = 0;
