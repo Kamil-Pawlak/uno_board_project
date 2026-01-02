@@ -93,8 +93,7 @@ void updateHardware() {
             }
         }
         if (shouldExecute(tPotentiometer, 100)) {
-            //potentiometerValue = analogRead(POTENTIOMETER_PIN);
-            potentiometerValue = (PINC & (1 << POTENTIOMETER_PIN)) ? 1023 : 0;
+            potentiometerValue = analogRead(POTENTIOMETER_PIN);
         }
 
         if (shouldExecute(tButton, 50)) {
