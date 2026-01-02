@@ -20,6 +20,7 @@ if TEST_MODE:
 
     current_port = "MOCK_PORT"
 else:
+
     SerialConnection = serial.Serial
 
 app_state = {
@@ -225,6 +226,8 @@ def main():
     if not TEST_MODE:
         available_ports = sorted(serial.tools.list_ports.comports())
 
+    has_connected = False
+
     running = True
     while running:
         for event in pygame.event.get():
@@ -258,6 +261,8 @@ def main():
             thread_started = False
             disconnect_start = None
 
+            has_connected = False
+
             selection = draw_port_selection(screen, font, available_ports)
             if selection:
                 current_port = str(selection.device) if not TEST_MODE else "MOCK_PORT"
@@ -272,15 +277,21 @@ def main():
                 thread_started = True
 
             # Logika rozłączania
-            if not app_state["connected"]:
+            if app_state["connected"]:
+                has_connected = True
+                disconnect_start = None
+
+            if has_connected and not app_state["connected"]:
+
                 if disconnect_start is None:
                     disconnect_start = time.time()
 
                 if time.time() - disconnect_start > 5.0:
                     print("Timeout reached. Returning to menu.")
                     current_port = None
+
             else:
-                disconnect_start = None
+                pass
 
             # Symulacja inputu z czujników z wykorzystaniem przycisków
             if TEST_MODE and not mock_killed:
