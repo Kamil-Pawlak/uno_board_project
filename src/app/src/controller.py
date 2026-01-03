@@ -11,6 +11,7 @@ import serial.tools.list_ports
 TEST_MODE = False          # Zmień na False przy rzeczywistym Arduino
 BAUD_RATE = 9600
 
+
 current_port = None
 thread_started = False
 disconnect_start = None
@@ -98,16 +99,18 @@ def serial_worker(port_name):
                     parts = line.split(";")
                     if len(parts) >= 4:
                         state_id = int(parts[0])
-                        ax = float(parts[1])
-                        ay = float(parts[2])
-                        az = float(parts[3])
+                        ax, ay, az = float(parts[1]), float(parts[2]), float(parts[3])
                         pot = int(parts[4]) if len(parts) > 4 else 0
 
                         app_state["mode_id"] = state_id
                         app_state["mode_str"] = get_mode_name(state_id)
                         app_state["acc"] = [ax, ay, az]
                         app_state["pot"] = pot
-                        app_state["connected"] = state_id != 0
+
+                        if TEST_MODE and mock_killed:
+                            app_state["connected"] = False
+                        else:
+                            app_state["connected"] = state_id != 0
 
                         if TEST_MODE and mock_killed:
                             app_state["connected"] = False
@@ -138,7 +141,6 @@ def update_cursor_logic(screen_w, screen_h):
 
     cursor["x"] -= ay * speed
     cursor["y"] -= ax * speed
-
     cursor["x"] = max(0, min(cursor["x"], screen_w))
     cursor["y"] = max(0, min(cursor["y"], screen_h))
 
@@ -278,6 +280,8 @@ def main():
     available_ports = []
     if not TEST_MODE:
         available_ports = sorted(serial.tools.list_ports.comports())
+
+    has_connected = False
 
     running = True
     has_connected_once = False

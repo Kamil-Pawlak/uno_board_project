@@ -3,9 +3,10 @@
 #include <Wire.h>
 #include <U8x8lib.h>
 
-const int BUTTON_PIN = 6;
-const int LED_PIN = 4;
-const int POTENTIOMETER_PIN = A0;
+#define BUTTON_PIN 6
+#define LED_PIN 4
+#define POTENTIOMETER_PIN A0
+#define BUZZER_PIN 5
 LIS3DHTR<TwoWire> LIS;
 
 // Konfiguracja wyświetlacza
@@ -16,12 +17,14 @@ State currentState = STATE_CONNECTING;
 State lastStateDisplayed = (State)-1; 
 
 unsigned long tAccel = 0, tSerial = 0, tButton = 0, tHandshake = 0,
-              tPotentiometer = 0, tDisplay = 0;
+              tPotentiometer = 0, tDisplay = 0, tBuzzer = 0;
 unsigned long lastHeartbeat = 0;
 
 const unsigned long HEARTBEAT_TIMEOUT = 3000;
 float lastX, lastY, lastZ;
 int potentiometerValue = 0;
+bool buzzerOn = false;
+
 
 bool shouldExecute(unsigned long &lastMillis, uint32_t interval);
 void handleCommunication();
@@ -30,9 +33,14 @@ void updateDisplay();
 
 void setup() {
     Serial.begin(9600);
-    pinMode(BUTTON_PIN, INPUT);
-    pinMode(LED_PIN, OUTPUT);
-    pinMode(POTENTIOMETER_PIN, INPUT);
+    //pinMode(BUZZER_PIN, OUTPUT);
+    //pinMode(LED_PIN, OUTPUT);
+    DDRD |= (1 << BUZZER_PIN) | (1 << LED_PIN);
+    //pinMode(BUTTON_PIN, INPUT);
+    //pinMode(POTENTIOMETER_PIN, INPUT);
+    DDRD &= ~(1 << BUTTON_PIN);
+    DDRC &= ~(1 << POTENTIOMETER_PIN);
+    
     
     LIS.begin(Wire, 0x19);
     LIS.setFullScaleRange(LIS3DHTR_RANGE_2G);
@@ -63,6 +71,7 @@ void handleCommunication() {
 
     if (currentState != STATE_CONNECTING && (millis() - lastHeartbeat > HEARTBEAT_TIMEOUT)) {
         currentState = STATE_CONNECTING;
+        buzzerOn = false;
     }
 
     if (currentState == STATE_CONNECTING) {
@@ -76,6 +85,12 @@ void updateHardware() {
     if (currentState != STATE_CONNECTING && currentState != STATE_CONFIRM) {
         if (shouldExecute(tAccel, 20)) {
             if (LIS.available()) LIS.getAcceleration(&lastX, &lastY, &lastZ);
+            if(abs(lastX) > 0.1 || abs(lastY) > 0.1) {
+                buzzerOn = true;
+            }
+            else {
+                buzzerOn = false;
+            }
         }
         if (shouldExecute(tPotentiometer, 100)) {
             potentiometerValue = analogRead(POTENTIOMETER_PIN);
@@ -83,7 +98,8 @@ void updateHardware() {
 
         if (shouldExecute(tButton, 50)) {
             static bool lastBtn = LOW;
-            bool currentBtn = digitalRead(BUTTON_PIN);
+            //bool currentBtn = digitalRead(BUTTON_PIN);
+            bool currentBtn = (PIND & (1 << BUTTON_PIN)) ? HIGH : LOW;
             if (currentBtn == HIGH && lastBtn == LOW) {
                 if (currentState == STATE_NEUTRAL) currentState = STATE_DRAWING;
                 else if (currentState == STATE_DRAWING) currentState = STATE_ERASING;
@@ -103,22 +119,34 @@ void updateHardware() {
 
     switch (currentState) {
         case STATE_CONNECTING:
-            digitalWrite(LED_PIN, (millis() / 500) % 2); 
+            //digitalWrite(LED_PIN, (millis() / 500) % 2); 
+            if ((millis() / 500) % 2) PORTD |= (1 << LED_PIN);
+            else PORTD &= ~(1 << LED_PIN);
             break;
         case STATE_CONFIRM:
-            digitalWrite(LED_PIN, HIGH);
-            if (digitalRead(BUTTON_PIN) == HIGH) {
+            //digitalWrite(LED_PIN, HIGH);
+            PORTD |= (1 << LED_PIN);
+            //if (digitalRead(BUTTON_PIN) == HIGH) {
+            if (PIND & (1 << BUTTON_PIN)) {
                 currentState = STATE_NEUTRAL;
             }
             break;
         case STATE_NEUTRAL:
         case STATE_DRAWING:
         case STATE_ERASING:
-            digitalWrite(LED_PIN, HIGH);
+            //digitalWrite(LED_PIN, HIGH);
+            PORTD |= (1 << LED_PIN);
             break;
     }
     if (shouldExecute(tDisplay, 200))
         updateDisplay();
+    if (shouldExecute(tBuzzer, 9) && buzzerOn) {
+        //digitalWrite(BUZZER_PIN, HIGH);
+        PORTD |= (1 << BUZZER_PIN);
+    } else {
+        //digitalWrite(BUZZER_PIN, LOW);
+        PORTD &= ~(1 << BUZZER_PIN);
+    }
 }
 
 void updateDisplay() {
